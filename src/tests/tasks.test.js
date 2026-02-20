@@ -76,4 +76,45 @@ describe('Task routes (protected)', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveProperty('items');
   });
+
+  test('Listing returns pagination metadata', async () => {
+    const token = await registerAndLogin('page@example.com');
+    await request(app).post('/api/v1/tasks').set('Authorization', `Bearer ${token}`).send({ title: 'T1' });
+    await request(app).post('/api/v1/tasks').set('Authorization', `Bearer ${token}`).send({ title: 'T2' });
+    await request(app).post('/api/v1/tasks').set('Authorization', `Bearer ${token}`).send({ title: 'T3' });
+
+    const res = await request(app).get('/api/v1/tasks?limit=2&page=1').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveProperty('page', 1);
+    expect(res.body.data).toHaveProperty('limit', 2);
+    expect(res.body.data).toHaveProperty('totalPages', 2);
+    expect(res.body.data).toHaveProperty('total', 3);
+    expect(res.body.data.items).toHaveLength(2);
+  });
+
+  test('Invalid dueDate format is rejected', async () => {
+    const token = await registerAndLogin('date@example.com');
+    const res = await request(app).post('/api/v1/tasks').set('Authorization', `Bearer ${token}`).send({ title: 'Bad Date', dueDate: 'not-a-date' });
+    expect(res.status).toBe(400);
+  });
+
+  test('Valid dueDate format is accepted', async () => {
+    const token = await registerAndLogin('date2@example.com');
+    const res = await request(app).post('/api/v1/tasks').set('Authorization', `Bearer ${token}`).send({ title: 'Good Date', dueDate: '2026-06-15' });
+    expect(res.status).toBe(201);
+    expect(res.body.data.dueDate).toBe('2026-06-15');
+  });
+
+  test('Update cannot overwrite immutable fields', async () => {
+    const token = await registerAndLogin('immutable@example.com');
+    const createRes = await request(app).post('/api/v1/tasks').set('Authorization', `Bearer ${token}`).send({ title: 'Original' });
+    const task = createRes.body.data;
+
+    const updateRes = await request(app).put(`/api/v1/tasks/${task.id}`).set('Authorization', `Bearer ${token}`).send({ title: 'Changed' });
+    expect(updateRes.status).toBe(200);
+    // id and createdBy must remain unchanged
+    expect(updateRes.body.data.id).toBe(task.id);
+    expect(updateRes.body.data.createdBy).toBe(task.createdBy);
+    expect(updateRes.body.data.createdAt).toBe(task.createdAt);
+  });
 });

@@ -16,7 +16,9 @@ const createTaskSchema = z.object({
   description: z.string().optional(),
   status: z.enum(['todo', 'in-progress', 'completed']).optional(),
   priority: z.enum(['low', 'medium', 'high']).optional(),
-  dueDate: z.string().optional(),
+  dueDate: z.string().refine((val) => !Number.isNaN(Date.parse(val)), {
+    message: 'dueDate must be a valid date string (e.g. 2025-12-31)',
+  }).optional(),
 });
 
 const updateTaskSchema = createTaskSchema.partial();

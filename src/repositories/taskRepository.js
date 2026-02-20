@@ -25,7 +25,9 @@ async function findById(id) {
 async function updateTask(id, updates) {
   const task = await findById(id);
   if (!task) return null;
-  Object.assign(task, updates, { updatedAt: new Date().toISOString() });
+  // Strip immutable fields to prevent accidental overwrites
+  const { id: _id, createdBy: _cb, createdAt: _ca, ...safeUpdates } = updates;
+  Object.assign(task, safeUpdates, { updatedAt: new Date().toISOString() });
   return task;
 }
 
@@ -54,9 +56,12 @@ async function findAllByUser(userId, {
   }
 
   const total = items.length;
+  const totalPages = Math.ceil(total / limit) || 1;
   const start = (page - 1) * limit;
   const paged = items.slice(start, start + limit);
-  return { items: paged, total };
+  return {
+    items: paged, total, page, limit, totalPages,
+  };
 }
 
 module.exports = {
